@@ -1,0 +1,174 @@
+Oyun
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Sevgililer Günü Oyunu</title>
+    <!-- Phaser 3 kütüphanesini ekleyelim -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.js"></script>
+    <script src="main.js"></script>
+  </head>
+  <body>
+  </body>
+
+// Diyalogları yönetecek sahne
+class DialogueScene extends Phaser.Scene {
+  constructor() {
+    super({ key: 'DialogueScene' });
+  }
+  
+  preload() {
+    // İleride görseller eklemek istersen buraya ekleyebilirsin
+  }
+  
+  create() {
+    // Diyalog dizisini oluşturuyoruz (senaryomuzdaki diyaloglar)
+    this.dialogues = [
+      { speaker: "Gizemli Rehber", text: "Dur, yürekli savaşçı! Bu yazıt seni Koç burcuna yönlendiriyor; fakat bil ki, öfke seni yanıltır." },
+      { speaker: "Kahraman", text: "Peki ya doğru yol hangisi? Sevgilimi kurtarmak için hangi güce bel bağlamalıyım?" },
+      { speaker: "Gizemli Rehber", text: "Aslan burcunun kudretinde gerçek ışık saklıdır. Derin vadinin ötesindeki kutsal tapınağa yönel." },
+      { speaker: "Aslan Rehberi", text: "Hoş geldin, cesur yürek. İki hançerin ve kararlı bakışların, senin sevginin gücünü yansıtıyor." },
+      { speaker: "Kahraman", text: "Rehberim, sevgilimi kurtarmak için ne yapmam gerekiyor? Hangi düşman beni bekliyor?" },
+      { speaker: "Aslan Rehberi", text: "Son sınav, karanlık kalbin derinliklerinde seni bekliyor. Orada, sevgilinin ruhunu esir alan zalim bir güç var." },
+      { speaker: "Kahraman", text: "O zaman, yola koyuluyorum. İkizler burcunun gücünü hissetmek için dua ediyorum." }
+    ];
+    this.currentDialogueIndex = 0;
+    
+    // Diyalog ve konuşmacı metinlerini ekrana yazdıran metin nesneleri
+    this.speakerText = this.add.text(50, 470, '', { font: "24px Arial", fill: "#ffff00" });
+    this.dialogueText = this.add.text(50, 500, '', { font: "20px Arial", fill: "#ffffff", wordWrap: { width: 700 } });
+    
+    // Tıklama ile diyalog ilerlesin
+    this.input.on('pointerdown', this.nextDialogue, this);
+    this.showDialogue();
+  }
+  
+  showDialogue() {
+    if (this.currentDialogueIndex < this.dialogues.length) {
+      let d = this.dialogues[this.currentDialogueIndex];
+      this.speakerText.setText(d.speaker + ":");
+      this.dialogueText.setText(d.text);
+    } else {
+      // Diyaloglar bittiğinde boss savaşı sahnesine geçiş yapıyoruz
+      this.scene.start('BossFightScene');
+    }
+  }
+  
+  nextDialogue() {
+    this.currentDialogueIndex++;
+    this.showDialogue();
+  }
+}
+
+// Boss savaşını yönetecek sahne
+class BossFightScene extends Phaser.Scene {
+  constructor() {
+    super({ key: 'BossFightScene' });
+  }
+  
+  preload() {
+    // Görsel ve ses dosyaları eklemek istersen burada yükleyebilirsin
+  }
+  
+  create() {
+    // Oyuncu ve boss için başlangıç değerleri
+    this.playerHealth = 100;
+    this.bossHealth = 100;
+    this.playerDamage = 15;
+    this.ikizlerIntervened = false;
+    
+    // Karakterin özellikleri (bu örnekte görsellik yerine metinle tanımlıyoruz)
+    this.add.text(50, 10, "İki elinde hançer taşıyan, hafif kaslı, beyaz tenli kahraman", { font: "18px Arial", fill: "#ffffff" });
+    
+    // Sağlık göstergeleri
+    this.playerHealthText = this.add.text(50, 50, "Player Health: " + this.playerHealth, { font: "20px Arial", fill: "#ffffff" });
+    this.bossHealthText = this.add.text(500, 50, "Boss Health: " + this.bossHealth, { font: "20px Arial", fill: "#ff0000" });
+    
+    // Savaş talimatı
+    this.instructionText = this.add.text(50, 100, "Click 'Attack' to attack the boss.", { font: "20px Arial", fill: "#ffffff" });
+    
+    // "Attack" butonunu oluşturuyoruz
+    this.attackButton = this.add.text(350, 300, "Attack", { font: "32px Arial", fill: "#00ff00" })
+      .setInteractive()
+      .on('pointerdown', this.playerAttack, this);
+    
+    // Özel mesajlar için metin alanı
+    this.messageText = this.add.text(50, 150, "", { font: "22px Arial", fill: "#ffff00" });
+  }
+  
+  playerAttack() {
+    // Oyuncu saldırısı: boss'un canı düşer
+    this.bossHealth -= this.playerDamage;
+    this.updateHealthTexts();
+    this.messageText.setText("You attacked the boss for " + this.playerDamage + " damage!");
+    
+    // Boss yenildiyse finale geç
+    if (this.bossHealth <= 0) {
+      this.time.delayedCall(1000, () => {
+        this.scene.start('FinalScene');
+      });
+      return;
+    }
+    
+    // Kısa bir gecikme sonrası boss karşı saldırısı
+    this.time.delayedCall(1000, this.bossAttack, [], this);
+  }
+  
+  bossAttack() {
+    // Boss saldırısı: oyuncunun canı düşer
+    let bossDamage = 20;
+    this.playerHealth -= bossDamage;
+    this.updateHealthTexts();
+    this.messageText.setText("Boss attacked you for " + bossDamage + " damage!");
+    
+    // Eğer oyuncu canı 50'nin altına düşerse ve henüz İkizler Ruhu müdahale etmediyse, müdahale gerçekleşir
+    if (this.playerHealth < 50 && !this.ikizlerIntervened) {
+      this.time.delayedCall(1000, this.ikizlerIntervention, [], this);
+    }
+  }
+  
+  ikizlerIntervention() {
+    this.ikizlerIntervened = true;
+    // İkizler Ruhu müdahale ediyor: oyuncunun saldırı gücünü artırıp canını yeniliyor
+    this.playerDamage = 30;
+    this.playerHealth += 20;
+    if (this.playerHealth > 100) this.playerHealth = 100;
+    this.updateHealthTexts();
+    this.messageText.setText("Ikizler Ruhu has intervened! Your attack power increases to " + this.playerDamage + " and you are healed!");
+  }
+  
+  updateHealthTexts() {
+    this.playerHealthText.setText("Player Health: " + this.playerHealth);
+    this.bossHealthText.setText("Boss Health: " + this.bossHealth);
+  }
+}
+
+// Final sahnesi: Boss yenildikten sonra sevgilinin kurtarılma anı
+class FinalScene extends Phaser.Scene {
+  constructor() {
+    super({ key: 'FinalScene' });
+  }
+  
+  preload() { }
+  
+  create() {
+    this.add.text(100, 250, "Congratulations!\nYou have defeated the boss and rescued your love.", 
+      { font: "32px Arial", fill: "#00ff00", align: "center" });
+    this.add.text(100, 350, "Sevginin gücü her zaman kazanır!", 
+      { font: "28px Arial", fill: "#ffff00", align: "center" });
+  }
+}
+
+// Phaser oyunumuzun temel yapılandırması
+var config = {
+  type: Phaser.AUTO,
+  width: 800,
+  height: 600,
+  backgroundColor: "#000000",
+  scene: [DialogueScene, BossFightScene, FinalScene]
+};
+
+var game = new Phaser.Game(config);
+
+</html>
